@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>마일스톤보드</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="index.html" style="color:inherit;"><span class="mark">M</span> 마일스톤보드</a>
+    <nav class="site-nav">
+      <a href="index.html">새 보드 만들기</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero" style="padding:40px 0 16px;">
+    <div class="wrap">
+      <h1 id="boardTitle">불러오는 중...</h1>
+      <div class="share-box">
+        이 링크를 공유하면 누구나 함께 확인할 수 있습니다 —
+        <code id="shareUrl">...</code>
+        <button class="btn ghost" id="copyLinkBtn">링크 복사</button>
+        <button class="btn ghost" id="exportBtn">마크다운으로 복사</button>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding-top:0;">
+    <div class="wrap">
+      <div class="card">
+        <h2>마일스톤 추가</h2>
+        <div class="field-row">
+          <div class="field" style="margin-bottom:0;">
+            <label for="title">일정</label>
+            <input type="text" id="title" placeholder="예: 베타 오픈">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label for="due">기한</label>
+            <input type="date" id="due">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label for="memo">메모</label>
+            <input type="text" id="memo" placeholder="선택">
+          </div>
+          <button class="btn" id="addBtn">추가</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding-top:20px;">
+    <div class="wrap">
+      <div class="card">
+        <h2>마일스톤 목록</h2>
+        <div id="itemList"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div>&copy; 2026 마일스톤보드 — <a href="index.html">새 보드 만들기</a></div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("b");
+  const itemList = document.getElementById("itemList");
+  const boardTitleEl = document.getElementById("boardTitle");
+  const shareUrlEl = document.getElementById("shareUrl");
+
+  let currentBoard = null;
+  let currentItems = [];
+
+  function render() {
+    shareUrlEl.textContent = window.location.href;
+    if (currentItems.length === 0) {
+      itemList.innerHTML = `<div class="empty-state">아직 등록된 마일스톤이 없습니다.</div>`;
+      return;
+    }
+    itemList.innerHTML = "";
+    currentItems.forEach((m) => {
+      const row = document.createElement("div");
+      row.className = "item-row";
+      row.innerHTML = `
+        <button class="status-pill status-${m.status}" data-id="${m.id}" data-action="cycle">${statusLabel(m.status)}</button>
+        <div class="item-task">${escapeHtml(m.title)}${m.memo ? `<span class="memo">${escapeHtml(m.memo)}</span>` : ""}</div>
+        <div class="item-meta">${m.due_date ? m.due_date + " 까지" : ""}</div>
+        <button class="btn danger-text" data-id="${m.id}" data-action="delete">삭제</button>
+      `;
+      itemList.appendChild(row);
+    });
+  }
+
+  async function refreshItems() {
+    currentItems = await loadMilestones(currentBoard.id);
+    render();
+  }
+
+  async function init() {
+    if (!code) {
+      boardTitleEl.textContent = "보드를 찾을 수 없습니다";
+      itemList.innerHTML = `<div class="empty-state">잘못된 링크입니다. <a href="index.html">새 보드를 만들어보세요.</a></div>`;
+      return;
+    }
+    try {
+      currentBoard = await loadBoardByCode(code);
+      boardTitleEl.textContent = currentBoard.title;
+      await refreshItems();
+    } catch (e) {
+      boardTitleEl.textContent = "불러오지 못했습니다";
+      itemList.innerHTML = `<div class="empty-state">보드 정보를 불러오지 못했습니다. config.js 설정과 Supabase 스키마를 확인해주세요.</div>`;
+    }
+  }
+
+  document.getElementById("addBtn").addEventListener("click", async () => {
+    const title = document.getElementById("title").value.trim();
+    const due = document.getElementById("due").value;
+    const memo = document.getElementById("memo").value.trim();
+    if (!title || !currentBoard) return;
+    await addMilestone(currentBoard.id, { title, due_date: due || null, memo });
+    document.getElementById("title").value = "";
+    document.getElementById("due").value = "";
+    document.getElementById("memo").value = "";
+    await refreshItems();
+  });
+
+  itemList.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button[data-action]");
+    if (!btn) return;
+    const id = btn.getAttribute("data-id");
+    const action = btn.getAttribute("data-action");
+    if (action === "cycle") {
+      const item = currentItems.find((i) => i.id === id);
+      await updateMilestoneStatus(id, nextStatus(item.status));
+      await refreshItems();
+    } else if (action === "delete") {
+      if (!confirm("이 마일스톤을 삭제할까요?")) return;
+      await deleteMilestone(id);
+      await refreshItems();
+    }
+  });
+
+  document.getElementById("copyLinkBtn").addEventListener("click", async () => {
+    const ok = await copyText(window.location.href);
+    const btn = document.getElementById("copyLinkBtn");
+    btn.textContent = ok ? "복사됨" : "복사 실패";
+    setTimeout(() => { btn.textContent = "링크 복사"; }, 1500);
+  });
+
+  document.getElementById("exportBtn").addEventListener("click", async () => {
+    const md = exportMarkdown(currentBoard, currentItems);
+    const ok = await copyText(md);
+    const btn = document.getElementById("exportBtn");
+    btn.textContent = ok ? "복사됨" : "복사 실패";
+    setTimeout(() => { btn.textContent = "마크다운으로 복사"; }, 1500);
+  });
+
+  init();
+</script>
+</body>
+</html>

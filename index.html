@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>마일스톤보드 — 프로젝트 일정을 링크 하나로</title>
+<meta name="description" content="프로젝트 주요 일정을 예정·진행중·완료 상태로 관리하고 링크 하나로 팀·이해관계자와 공유하는 무료 도구입니다.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><span class="mark">M</span> 마일스톤보드</div>
+    <nav class="site-nav">
+      <a href="guide/milestone-sharing.html">가이드</a>
+      <a href="faq.html">FAQ</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <div class="eyebrow">전용 링크로 안전하게 공유 · 초대 없이 바로 참여 · 추가 비용 없는 팀 협업</div>
+      <h1>"그거 언제까지죠?"를 회의마다 반복하고 있지 않나요?</h1>
+      <p class="lede">마일스톤보드는 프로젝트 주요 일정을 예정·진행중·완료 상태로 관리하는 도구입니다. 가입 없이 링크 하나로 팀과 이해관계자 모두에게 공유하세요.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="card" style="max-width:520px;">
+        <h2>새 마일스톤보드 만들기</h2>
+        <div class="field">
+          <label for="title">보드 이름</label>
+          <input type="text" id="title" placeholder="예: 9월 신규 서비스 런칭 일정">
+        </div>
+        <button class="btn" id="createBtn" style="width:100%;">만들고 시작하기</button>
+        <p id="errorMsg" style="color:#C0362C; font-size:0.85rem; margin-top:10px; display:none;"></p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>이렇게 씁니다</h2>
+      <div class="guide-grid">
+        <div class="guide-card">
+          <div class="tag">STEP 1</div>
+          <h3>보드 이름만 입력</h3>
+          <p>가입도 로그인도 없습니다. 이름 하나만 입력하면 전용 링크가 만들어집니다.</p>
+        </div>
+        <div class="guide-card">
+          <div class="tag">STEP 2</div>
+          <h3>확인 지점 등록</h3>
+          <p>세부 작업이 아니라 "이 시점에는 이게 끝나 있어야 한다"는 지점만 등록합니다.</p>
+        </div>
+        <div class="guide-card">
+          <div class="tag">STEP 3</div>
+          <h3>클릭으로 상태 변경</h3>
+          <p>예정·진행중·완료 세 단계를 클릭 한 번으로 전환합니다.</p>
+        </div>
+        <div class="guide-card">
+          <div class="tag">STEP 4</div>
+          <h3>링크로 공유</h3>
+          <p>같은 링크를 이해관계자에게 보내면 항상 최신 상태를 확인할 수 있습니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div style="margin-bottom:10px;">
+      <a href="guide/milestone-sharing.html">마일스톤 공유 가이드</a>
+      <a href="guide/deadline-slip.html">기한이 밀릴 때 대처법</a>
+      <a href="faq.html">FAQ</a>
+      <a href="privacy.html">개인정보처리방침</a>
+      <a href="terms.html">이용약관</a>
+    </div>
+    <div>&copy; 2026 마일스톤보드</div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  const createBtn = document.getElementById("createBtn");
+  const titleInput = document.getElementById("title");
+  const errorMsg = document.getElementById("errorMsg");
+
+  async function handleCreate() {
+    const title = titleInput.value.trim();
+    if (!title) { titleInput.focus(); return; }
+    createBtn.disabled = true;
+    createBtn.textContent = "만드는 중...";
+    errorMsg.style.display = "none";
+    try {
+      const board = await createBoard(title);
+      window.location.href = `board.html?b=${board.share_code}`;
+    } catch (e) {
+      errorMsg.textContent = "보드를 만들지 못했습니다. config.js와 Supabase 스키마를 확인해주세요. (" + (e.message || e) + ")";
+      errorMsg.style.display = "block";
+      createBtn.disabled = false;
+      createBtn.textContent = "만들고 시작하기";
+    }
+  }
+
+  createBtn.addEventListener("click", handleCreate);
+  titleInput.addEventListener("keydown", (e) => { if (e.key === "Enter") handleCreate(); });
+</script>
+</body>
+</html>
